@@ -1,0 +1,43 @@
+{
+  "name": "@sandsoftwaresolutions/duration",
+  "version": "0.1.0",
+  "description": "Read and show durations: 1h30m, 90 min, 2 uur, ISO 8601. Refuses what it cannot read.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "duration",
+    "time",
+    "iso8601",
+    "parse"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SandSoftwareSolutions/ss-duration.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SandSoftwareSolutions/ss-duration/issues"
+  },
+  "homepage": "https://github.com/SandSoftwareSolutions/ss-duration#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
