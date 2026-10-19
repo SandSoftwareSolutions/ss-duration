@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { test } from "node:test";
 
 import { formatDuration, parseDuration, parseIso, toIso } from "./src/index.js";
@@ -61,4 +62,30 @@ test("ISO 8601", () => {
   assert.equal(toIso(0), "PT0S");
   assert.equal(toIso(500), "PT0.5S");
   for (const ms of [1000, 90_000, 5_400_000, 200_000_000]) assert.equal(parseIso(toIso(ms)), ms);
+});
+
+test("inherited names are not units: '1constructor' used to return NaN", () => {
+  assert.throws(() => parseDuration("1constructor"), SyntaxError);
+  assert.throws(() => parseDuration("1 tostring"), SyntaxError);
+});
+
+test("rounding carries: 999.6 ms is 1s, 59 999.6 ms is PT1M, a bare fraction is rounded", () => {
+  assert.equal(formatDuration(999.6), "1s");
+  assert.equal(formatDuration(999.4), "999ms");
+  assert.equal(toIso(59_999.6), "PT1M");
+  assert.equal(toIso(3_599_999.9), "PT1H");
+  assert.equal(parseDuration("1.7"), 2);
+});
+
+test("values beyond 2^53 ms are a RangeError, not an inexact number", () => {
+  assert.throws(() => parseDuration("99999999999999999999d"), RangeError);
+  assert.throws(() => parseIso("P99999999999999999999D"), RangeError);
+});
+
+test("random durations: parseIso(toIso(ms)) is ms, parseDuration(formatDuration(ms)) is ms rounded to seconds", () => {
+  for (let i = 0; i < 3000; i++) {
+    const ms = randomBytes(6).readUIntBE(0, 6) % 10 ** (1 + (i % 12));
+    assert.equal(parseIso(toIso(ms)), ms);
+    if (ms >= 1000) assert.equal(parseDuration(formatDuration(ms, { maxUnits: 4 })), Math.round(ms / 1000) * 1000);
+  }
 });

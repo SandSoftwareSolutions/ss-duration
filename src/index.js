@@ -21,7 +21,7 @@ export function parseDuration(input) {
   if (typeof input !== "string") throw new TypeError("duration: expected a string or a number");
   const text = input.trim().toLowerCase();
   if (text === "") throw new SyntaxError("duration: empty");
-  if (/^\d+(\.\d+)?$/.test(text)) return Number(text);
+  if (/^\d+(\.\d+)?$/.test(text)) return safe(Math.round(Number(text)), input);
   const part = /(\d+(?:\.\d+)?)\s*([a-z]+)/y;
   let total = 0;
   let index = 0;
@@ -29,13 +29,19 @@ export function parseDuration(input) {
     part.lastIndex = index;
     const match = part.exec(text);
     if (!match) throw new SyntaxError(`duration: cannot read "${input}"`);
-    const unit = ALIASES[match[2]];
+    const unit = Object.hasOwn(ALIASES, match[2]) ? ALIASES[match[2]] : undefined; // not "constructor"
     if (!unit) throw new SyntaxError(`duration: unknown unit "${match[2]}" in "${input}"`);
     total += Number(match[1]) * UNITS[unit];
     index = part.lastIndex;
     while (text[index] === " " || text[index] === ",") index++;
   }
-  return Math.round(total);
+  return safe(Math.round(total), input);
+}
+
+// Beyond 2^53 milliseconds (about 285 000 years) numbers are no longer exact, so that is an error, not a silently wrong result.
+function safe(ms, input) {
+  if (!Number.isSafeInteger(ms)) throw new RangeError(`duration: "${input}" is too large`);
+  return ms;
 }
 
 const CLOCK = [["d", 86_400], ["h", 3600], ["m", 60], ["s", 1]];
@@ -44,7 +50,8 @@ const CLOCK = [["d", 86_400], ["h", 3600], ["m", 60], ["s", 1]];
 export function formatDuration(ms, { maxUnits = 3 } = {}) {
   if (!Number.isFinite(ms) || ms < 0) throw new RangeError("duration: expected a finite, non-negative number of milliseconds");
   if (!Number.isInteger(maxUnits) || maxUnits < 1) throw new RangeError("duration: maxUnits must be a whole number of at least 1");
-  if (ms < 1000) return `${Math.round(ms)}ms`;
+  ms = Math.round(ms); // 999.6 is 1 second, not "1000ms"
+  if (ms < 1000) return `${ms}ms`;
   let seconds = Math.round(ms / 1000);
   const first = CLOCK.findIndex(([, size]) => seconds >= size);
   const last = Math.min(first + maxUnits - 1, CLOCK.length - 1);
@@ -67,19 +74,20 @@ export function parseIso(input) {
     throw new SyntaxError(`duration: "${input}" is not an ISO 8601 duration`);
   }
   const [, w, d, h, m, s] = match.map((v) => (v === undefined ? 0 : Number(v)));
-  return Math.round(w * UNITS.w + d * UNITS.d + h * UNITS.h + m * UNITS.m + s * UNITS.s);
+  return safe(Math.round(w * UNITS.w + d * UNITS.d + h * UNITS.h + m * UNITS.m + s * UNITS.s), input);
 }
 
 /** `toIso(5_400_000)` is `"PT1H30M"`. */
 export function toIso(ms) {
   if (!Number.isFinite(ms) || ms < 0) throw new RangeError("duration: expected a finite, non-negative number of milliseconds");
-  let seconds = ms / 1000;
-  const d = Math.floor(seconds / 86_400);
-  seconds -= d * 86_400;
-  const h = Math.floor(seconds / 3600);
-  seconds -= h * 3600;
-  const m = Math.floor(seconds / 60);
-  seconds = Math.round((seconds - m * 60) * 1000) / 1000;
+  let rest = Math.round(ms); // whole milliseconds, so 59 999.6 ms is "PT1M", not "PT60S"
+  const d = Math.floor(rest / 86_400_000);
+  rest -= d * 86_400_000;
+  const h = Math.floor(rest / 3_600_000);
+  rest -= h * 3_600_000;
+  const m = Math.floor(rest / 60_000);
+  rest -= m * 60_000;
+  const seconds = rest / 1000;
   const date = d ? `${d}D` : "";
   const time = `${h ? `${h}H` : ""}${m ? `${m}M` : ""}${seconds ? `${seconds}S` : ""}`;
   return time ? `P${date}T${time}` : date ? `P${date}` : "PT0S";
