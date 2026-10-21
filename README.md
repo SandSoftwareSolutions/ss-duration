@@ -10,6 +10,8 @@ Durations as people write them: `"1h30m"`, `"90 min"`, `"2 uur"`. Read them from
 npm install @sandsoftwaresolutions/duration
 ```
 
+Works with `import` and `require()`, and ships TypeScript types for both.
+
 ## Usage
 
 ```js
